@@ -6316,7 +6316,17 @@ function AutopilotPermissionStep({ newClients, onAcceptPlan, onViewClients, onCo
     setTimeout(() => advance(0), 700);
   }
 
-  // Old generic path — kept exactly as-is for the two ALTERNATIVES; no real commit.
+  // Alt-plan path for the two ALTERNATIVES. 10 Aug fix: this used to only animate
+  // through the step labels and then flip the "PLAN ACCEPTED (MOCK)" badge via
+  // onAcceptPlan without ever calling onCommitReconstruction — so accepting an
+  // alternative plan lied: the badge said done, but Client Portfolio List (which
+  // reads real client.holdingIds, not this badge) correctly kept showing "Build
+  // cost base history" because nothing had actually been written. Now mirrors
+  // continueToChain(): really commits each client's seed once the animation
+  // finishes, using each seed's default resolution where it has a REVIEW row
+  // (buildHoldings() with no resolutions passed — e.g. c7 defaults to the
+  // registry figure, same as the unresolved-Chain default), so the badge and
+  // the underlying holdings/CGT state always agree, on this path too.
   function acceptAlternative(p) {
     const acceptedIds = newClients.map(c => c.id); // captured now — closure stays correct even if newClients changes on a later render
     setDecision("accepted");
@@ -6333,10 +6343,28 @@ function AutopilotPermissionStep({ newClients, onAcceptPlan, onViewClients, onCo
         setTimeout(tick, 900);
       } else {
         setStage(7); // Chain
-        setStatus("Mock outcome — this demo doesn't run a live engine past this point. In a real build, you'd review and approve the reconstructed portfolio here before anything commits.");
+        const queue = newClients.slice();
+        let holdingsCount = 0;
+        let pushedTotal = 0;
+        queue.forEach(c => {
+          const seed = AUTOPILOT_RECON_SEEDS[c.id];
+          if (!seed || !onCommitReconstruction) return;
+          const newHoldings = seed.buildHoldings();
+          holdingsCount += Object.keys(newHoldings).length;
+          const pushed = onCommitReconstruction(c.id, newHoldings);
+          pushedTotal += pushed || 0;
+        });
+        // Same combined-figure phrasing as continueToChain — read back from
+        // handleCommitReconstruction's own computation, not hardcoded.
+        const cgtSummary = pushedTotal > 0
+          ? `$${pushedTotal.toLocaleString()} combined assessable gain for this batch`
+          : `$0 for this batch (cost base recovered, no disposals reconstructed)`;
+        setStatus(holdingsCount > 0
+          ? `Reconstructed and committed ${holdingsCount} holding${holdingsCount===1?"":"s"} across ${queue.length} client${queue.length===1?"":"s"} using this reduced plan, and pushed each client's FY2025-26 CGT figure to their linked tax job — ${cgtSummary}, so all ${queue.length} job${queue.length===1?"":"s"} move to Synced on the Tax Obligations tab. Real parcels now appear in the Client Portfolio List.`
+          : "Mock outcome — no seed data available to commit for this batch. In a real build, you'd review and approve the reconstructed portfolio here before anything commits.");
         // Signal upstream so the Client Portfolio List can show a "Plan accepted (mock)"
-        // receipt next to these clients' names — otherwise accepting here leaves zero
-        // trace anywhere else in the app (the gap flagged in review).
+        // receipt next to these clients' names — now fires only after the commit above,
+        // so the receipt and the actual state it implies always match.
         if (onAcceptPlan) onAcceptPlan(acceptedIds);
       }
     };
