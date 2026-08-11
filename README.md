@@ -1,2 +1,3 @@
 # CGTrace-deploy
-Personal Demo Project - CapitalGainTaxSolution for Australian Accounting Firm of all sizes
+Personal Demo Project - A forward-thinking Capital Gain Tax Solution concept for Australian accounting industry. 
+
