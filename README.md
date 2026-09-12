@@ -1,3 +1,3 @@
 # CGTrace-deploy
-Personal Demo Project - A forward-thinking Capital Gain Tax Solution concept for Australian accounting industry. 
+Personal Demo Project - A forward-thinking, AI Agentic-led CGT solution concept for Australian accounting industry. 
 
